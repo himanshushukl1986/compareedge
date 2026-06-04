@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   const hasUrls = yourProductUrl || competitorUrl;
 
-  const systemPrompt = `You are a sharp sales intelligence engine for a health supplement brand.
+  const systemPromptText = `You are a sharp sales intelligence engine for a health supplement brand.
 Your job is to generate detailed, agent-ready battle cards when the brand's product is compared to a competitor.
 ${hasUrls ? `IMPORTANT: Product page URLs have been provided. Use the web_search tool to look up these URLs and extract real product data — protein content, price, ingredients, certifications, reviews — before building the comparison. Be specific and data-driven.` : ''}
 Be direct, specific, and honest. Use real knowledge about supplement categories and brands.
@@ -80,9 +80,15 @@ Respond ONLY with this exact JSON structure (no text outside JSON):
 }`;
 
   const claudeBody = {
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5",
     max_tokens: 2000,
-    system: systemPrompt,
+    system: [
+      {
+        type: "text",
+        text: systemPromptText,
+        cache_control: { type: "ephemeral" }
+      }
+    ],
     messages: [{ role: "user", content: userPrompt }]
   };
 
@@ -96,7 +102,8 @@ Respond ONLY with this exact JSON structure (no text outside JSON):
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "prompt-caching-2024-07-31"
       },
       body: JSON.stringify(claudeBody)
     });
