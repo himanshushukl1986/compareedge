@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'API key not configured on server' });
   }
 
-  const { yourProduct, competitorProduct, yourProductUrl, competitorUrl, category, customerType, sellingPoints } = req.body;
+  const { yourProduct, competitorProduct, yourProductUrl, competitorUrl, yourProductPrice, competitorPrice, category, customerType, sellingPoints } = req.body;
 
   if (!yourProduct || !competitorProduct) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -26,6 +26,10 @@ Always respond ONLY with pure JSON — no markdown, no preamble, no explanation 
   if (yourProductUrl) urlContext += `\nOUR PRODUCT PAGE URL: ${yourProductUrl} (fetch this to get real specs)`;
   if (competitorUrl) urlContext += `\nCOMPETITOR PRODUCT PAGE URL: ${competitorUrl} (fetch this to get real specs)`;
 
+  let priceContext = '';
+  if (yourProductPrice) priceContext += `\nOUR PRODUCT PRICE (use this exact figure, do not fetch or guess): ₹${yourProductPrice}`;
+  if (competitorPrice) priceContext += `\nCOMPETITOR PRICE (use this exact figure, do not fetch or guess): ₹${competitorPrice}`;
+
   const userPrompt = `Generate a detailed sales battle card comparison.
 
 OUR PRODUCT: ${yourProduct}
@@ -34,6 +38,7 @@ CATEGORY: ${category}
 CUSTOMER TYPE: ${customerType}
 ${sellingPoints ? `OUR KEY SELLING POINTS: ${sellingPoints}` : ''}
 ${urlContext}
+${priceContext}
 ${hasUrls ? '\nSearch / fetch the provided URLs above to extract real product details before building the comparison. Use actual numbers from the product pages wherever possible.' : ''}
 
 Respond ONLY with this exact JSON structure (no text outside JSON):
@@ -75,7 +80,7 @@ Respond ONLY with this exact JSON structure (no text outside JSON):
 }`;
 
   const claudeBody = {
-    model: "claude-sonnet-4-5",
+    model: "claude-sonnet-4-20250514",
     max_tokens: 2000,
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }]
