@@ -31,6 +31,100 @@
     overflow-x: hidden;
   }
 
+  /* Layman summary */
+  .layman-box {
+    background: linear-gradient(135deg, rgba(0,229,160,0.07), rgba(0,229,160,0.02));
+    border: 1px solid rgba(0,229,160,0.25);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .layman-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .layman-text {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--text);
+  }
+
+  /* Simple explanation under scores */
+  .score-simple {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    padding-left: 2px;
+    font-style: italic;
+    line-height: 1.4;
+  }
+
+  /* Tech terms glossary */
+  .glossary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .glossary-item {
+    background: rgba(112,112,160,0.07);
+    border: 1px solid rgba(112,112,160,0.15);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .glossary-item:hover { border-color: rgba(0,229,160,0.3); }
+  .glossary-term {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .glossary-plain {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.5;
+    display: none;
+  }
+  .glossary-item.open .glossary-plain { display: block; }
+  .glossary-item.open .glossary-arrow { transform: rotate(90deg); }
+  .glossary-arrow { display: inline-block; transition: transform 0.2s; color: var(--muted); font-size: 10px; }
+
+  /* WhatsApp messages */
+  .wa-message {
+    background: rgba(37,211,102,0.06);
+    border: 1px solid rgba(37,211,102,0.2);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+    position: relative;
+  }
+  .wa-copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(37,211,102,0.15);
+    border: none;
+    border-radius: 6px;
+    color: #25d366;
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .wa-copy-btn:hover { background: rgba(37,211,102,0.25); }
+
   body::before {
     content: '';
     position: fixed;
@@ -690,6 +784,14 @@ function renderResults(r) {
     </div>`;
   }
 
+  // Layman Summary
+  if (r.laymanSummary) {
+    html += `<div class="layman-box">
+      <div class="layman-label">🧠 Plain English Summary — read this first</div>
+      <div class="layman-text">${escHtml(r.laymanSummary)}</div>
+    </div>`;
+  }
+
   // Verdict
   html += `<div class="verdict-box">
     <div class="verdict-label">📊 Sales Verdict</div>
@@ -720,6 +822,7 @@ function renderResults(r) {
             <div class="score-bar-wrap"><div class="score-bar ${s.winner === 'them' ? 'lose' : 'neutral'}" style="width:${theirs}%;opacity:0.55"></div></div>
             <span class="score-val" style="color:var(--muted);opacity:0.6">${theirs}</span>
           </div>
+          ${s.simpleExplanation ? `<div class="score-simple">💡 ${escHtml(s.simpleExplanation)}</div>` : ''}
         </div>
       </div>`;
     }
@@ -778,6 +881,39 @@ function renderResults(r) {
   }
   html += `</div>`;
 
+  // Technical Terms Glossary
+  if (r.technicalTerms && r.technicalTerms.length) {
+    html += `<div class="section-card">
+      <div class="section-header">
+        <div class="section-icon" style="background:rgba(112,112,160,0.15);color:#a0a0d0;">📖</div>
+        <div><div class="section-title">Jargon Buster</div><div class="section-subtitle">Tap any term to see what it actually means</div></div>
+      </div>
+      <div class="glossary-grid">`;
+    for (const t of r.technicalTerms) {
+      html += `<div class="glossary-item" onclick="this.classList.toggle('open')">
+        <div class="glossary-term"><span class="glossary-arrow">▶</span>${escHtml(t.term)}</div>
+        <div class="glossary-plain">${escHtml(t.plain)}</div>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  // WhatsApp Messages
+  if (r.whatsappMessages && r.whatsappMessages.length) {
+    html += `<div class="section-card">
+      <div class="section-header">
+        <div class="section-icon" style="background:rgba(37,211,102,0.12);color:#25d366;">💚</div>
+        <div><div class="section-title">WhatsApp-Ready Messages</div><div class="section-subtitle">Copy-paste when customer sends a competitor link</div></div>
+      </div>`;
+    for (let i = 0; i < r.whatsappMessages.length; i++) {
+      html += `<div class="wa-message">
+        <button class="wa-copy-btn" onclick="copyWa(this)">Copy</button>
+        ${escHtml(r.whatsappMessages[i])}
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
   // Closing line
   if (r.closingLine) {
     html += `<div class="verdict-box" style="border-color:rgba(255,201,92,0.3);background:linear-gradient(135deg,rgba(255,201,92,0.08),rgba(255,201,92,0.03));">
@@ -796,6 +932,14 @@ function escHtml(str) {
 function escAttr(str) {
   if (!str) return '';
   return String(str).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function copyWa(btn) {
+  const text = btn.parentElement.textContent.replace('Copy', '').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+  });
 }
 
 function copyAll(elementId, btn) {
