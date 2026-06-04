@@ -1,10 +1,5 @@
 {
   "version": 2,
-  "functions": {
-    "api/compare.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "routes": [
     { "src": "/api/compare", "dest": "/api/compare.js" },
     { "src": "/(.*)", "dest": "/index.html" }
