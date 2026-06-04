@@ -91,7 +91,7 @@ Respond ONLY with this exact JSON structure (no text outside JSON):
 }`;
 
   const claudeBody = {
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5",
     max_tokens: 2000,
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }]
