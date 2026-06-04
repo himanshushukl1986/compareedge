@@ -434,6 +434,13 @@
         <div class="url-status" id="yourUrlStatus"></div>
       </div>
     </div>
+    <div class="input-grid" style="margin-bottom:8px;">
+      <div>
+        <div class="field-label">Your Product Price (₹) <span class="optional-tag">optional — overrides URL data</span></div>
+        <input type="text" id="yourProductPrice" placeholder="e.g. 2799 for 1kg" />
+      </div>
+      <div></div>
+    </div>
 
     <hr class="divider">
 
@@ -454,6 +461,13 @@
         </div>
         <div class="url-status" id="competitorUrlStatus"></div>
       </div>
+    </div>
+    <div class="input-grid" style="margin-bottom:8px;">
+      <div>
+        <div class="field-label">Competitor Price (₹) <span class="optional-tag">optional — overrides URL data</span></div>
+        <input type="text" id="competitorPrice" placeholder="e.g. 3499 for 1kg" />
+      </div>
+      <div></div>
     </div>
 
     <hr class="divider">
@@ -554,6 +568,8 @@ async function generateComparison() {
   const competitorProduct = document.getElementById('competitorProduct').value.trim();
   const yourProductUrl = document.getElementById('yourProductUrl').value.trim();
   const competitorUrl = document.getElementById('competitorUrl').value.trim();
+  const yourProductPrice = document.getElementById('yourProductPrice').value.trim();
+  const competitorPrice = document.getElementById('competitorPrice').value.trim();
   const category = document.getElementById('category').value;
   const customerType = document.getElementById('customerType').value;
   const sellingPoints = document.getElementById('sellingPoints').value.trim();
@@ -604,6 +620,8 @@ async function generateComparison() {
         yourProduct,
         competitorProduct,
         yourProductUrl,
+        yourProductPrice,
+        competitorPrice,
         competitorUrl,
         category,
         customerType,
