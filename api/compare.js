@@ -1,26 +1,17 @@
-export const config = { runtime: 'edge' };
-
-export default async function handler(req) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'API key not configured' }), { status: 500 });
+    return res.status(500).json({ error: 'API key not configured on server' });
   }
 
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid request body' }), { status: 400 });
-  }
-
-  const { yourProduct, competitorProduct, yourProductUrl, competitorUrl, category, customerType, sellingPoints } = body;
+  const { yourProduct, competitorProduct, yourProductUrl, competitorUrl, category, customerType, sellingPoints } = req.body;
 
   if (!yourProduct || !competitorProduct) {
-    return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400 });
+    return res.status(400).json({ error: 'Missing required fields' });
   }
 
   const hasUrls = yourProductUrl || competitorUrl;
@@ -108,10 +99,9 @@ Respond ONLY with this exact JSON structure (no text outside JSON):
     const data = await claudeRes.json();
 
     if (data.error) {
-      return new Response(JSON.stringify({ error: data.error.message }), { status: 500 });
+      return res.status(500).json({ error: data.error.message });
     }
 
-    // Extract text blocks only (handles web_search tool_use/tool_result blocks too)
     const raw = data.content
       .filter(i => i.type === 'text')
       .map(i => i.text || '')
@@ -119,15 +109,12 @@ Respond ONLY with this exact JSON structure (no text outside JSON):
 
     const clean = raw.replace(/```json|```/g, '').trim();
     const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON in Claude response');
+    if (!jsonMatch) throw new Error('No JSON found in Claude response');
 
     const result = JSON.parse(jsonMatch[0]);
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(200).json(result);
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message || 'Claude API call failed' }), { status: 500 });
+    return res.status(500).json({ error: err.message || 'Claude API call failed' });
   }
 }
