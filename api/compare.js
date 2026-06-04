@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   const hasUrls = yourProductUrl || competitorUrl;
 
-  const systemPromptText = `You are a sharp sales intelligence engine for a health supplement brand.
+  const systemPrompt = `You are a sharp sales intelligence engine for a health supplement brand.
 Your job is to generate detailed, agent-ready battle cards when the brand's product is compared to a competitor.
 ${hasUrls ? `IMPORTANT: Product page URLs have been provided. Use the web_search tool to look up these URLs and extract real product data — protein content, price, ingredients, certifications, reviews — before building the comparison. Be specific and data-driven.` : ''}
 Be direct, specific, and honest. Use real knowledge about supplement categories and brands.
@@ -46,13 +46,14 @@ Respond ONLY with this exact JSON structure (no text outside JSON):
   "yourProduct": "${yourProduct}",
   "competitorProduct": "${competitorProduct}",
   "dataSource": "${hasUrls ? 'live' : 'ai'}",
+  "laymanSummary": "3-4 sentence plain English summary a 16-year-old would understand. No jargon. Tell them which product wins and exactly why in simple words.",
   "verdict": "2-3 sentence overall verdict on how we win this comparison for a ${customerType}",
   "scores": [
-    {"label": "Protein per Scoop", "ours": 85, "theirs": 75, "winner": "us"},
-    {"label": "Value for Money", "ours": 90, "theirs": 65, "winner": "us"},
-    {"label": "Taste/Mixability", "ours": 75, "theirs": 80, "winner": "them"},
-    {"label": "Ingredient Quality", "ours": 88, "theirs": 70, "winner": "us"},
-    {"label": "Brand Trust", "ours": 70, "theirs": 85, "winner": "them"}
+    {"label": "Protein per Scoop", "ours": 85, "theirs": 75, "winner": "us", "simpleExplanation": "One sentence in plain language explaining what this score difference means for the customer — no technical terms"},
+    {"label": "Value for Money", "ours": 90, "theirs": 65, "winner": "us", "simpleExplanation": "One sentence plain language explanation"},
+    {"label": "Taste/Mixability", "ours": 75, "theirs": 80, "winner": "them", "simpleExplanation": "One sentence plain language explanation"},
+    {"label": "Ingredient Quality", "ours": 88, "theirs": 70, "winner": "us", "simpleExplanation": "One sentence plain language explanation"},
+    {"label": "Brand Trust", "ours": 70, "theirs": 85, "winner": "them", "simpleExplanation": "One sentence plain language explanation"}
   ],
   "ourWins": [
     "Specific advantage 1 with real data/numbers",
@@ -71,6 +72,16 @@ Respond ONLY with this exact JSON structure (no text outside JSON):
     "Ready-to-say line agent can use verbatim 4",
     "Ready-to-say line agent can use verbatim 5"
   ],
+  "technicalTerms": [
+    {"term": "technical term used anywhere in this battle card", "plain": "plain English explanation in one sentence that any layman understands"},
+    {"term": "second technical term", "plain": "plain English explanation"},
+    {"term": "third technical term", "plain": "plain English explanation"}
+  ],
+  "whatsappMessages": [
+    "WhatsApp message 1 — under 50 words, conversational, no jargon, agent can copy-paste directly when customer shares competitor link",
+    "WhatsApp message 2 — different angle, same rules",
+    "WhatsApp message 3 — price-focused, same rules"
+  ],
   "objectionHandlers": [
     {"objection": "Most common objection customer raises when they prefer the competitor", "response": "Ideal agent response — confident, factual, not defensive"},
     {"objection": "Second common objection", "response": "Ideal response"},
@@ -80,15 +91,9 @@ Respond ONLY with this exact JSON structure (no text outside JSON):
 }`;
 
   const claudeBody = {
-    model: "claude-sonnet-4-5",
+    model: "claude-sonnet-4-20250514",
     max_tokens: 2000,
-    system: [
-      {
-        type: "text",
-        text: systemPromptText,
-        cache_control: { type: "ephemeral" }
-      }
-    ],
+    system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }]
   };
 
@@ -102,8 +107,7 @@ Respond ONLY with this exact JSON structure (no text outside JSON):
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-beta": "prompt-caching-2024-07-31"
+        "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify(claudeBody)
     });
