@@ -744,16 +744,6 @@ function setStep(n) {
   }
 }
 
-async function fetchPageContent(url) {
-  if (!url) return null;
-  try {
-    new URL(url); // validate
-  } catch { return null; }
-
-  // Use Claude's web_fetch via the API with tools
-  return url; // we pass URL to Claude via prompt; Claude fetches it using web_search tool
-}
-
 // Web search toggle state
 let webSearchEnabled = false;
 
@@ -912,7 +902,7 @@ function renderResults(r) {
 
   // Scores
   if (r.scores && r.scores.length) {
-    html += `<div class="section-card score-card active" style="display:block;">
+    html += `<div class="section-card score-card active">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <div class="score-title" style="margin:0;">Head-to-Head Scores</div>
         <div class="score-legend">
@@ -1018,7 +1008,8 @@ function renderResults(r) {
         <div><div class="section-title">WhatsApp-Ready Messages</div><div class="section-subtitle">Copy-paste when customer sends a competitor link</div></div>
       </div>`;
     for (let i = 0; i < r.whatsappMessages.length; i++) {
-      html += `<div class="wa-message">
+      // Store raw message in data-msg so copyWa reads clean text, not DOM textContent
+      html += `<div class="wa-message" data-msg="${escAttr(r.whatsappMessages[i])}">
         <button class="wa-copy-btn" onclick="copyWa(this)">Copy</button>
         ${escHtml(r.whatsappMessages[i])}
       </div>`;
@@ -1072,7 +1063,9 @@ function renderResults(r) {
 
 function escHtml(str) {
   if (!str) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // Do NOT encode quotes here — this is for HTML content, not attributes.
+  // Encoding quotes in content causes &quot; to render literally on screen.
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 function escAttr(str) {
   if (!str) return '';
@@ -1080,10 +1073,29 @@ function escAttr(str) {
 }
 
 function copyWa(btn) {
-  const text = btn.parentElement.textContent.replace('Copy', '').trim();
+  // Read from data-msg attribute — avoids capturing button text or mangling whitespace
+  const text = btn.parentElement.getAttribute('data-msg') || '';
+  if (!text) return;
   navigator.clipboard.writeText(text).then(() => {
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy', 2000);
+  }).catch(() => {
+    // Fallback for HTTP or browsers blocking clipboard API
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    } catch {
+      btn.textContent = 'Copy failed';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    }
   });
 }
 
@@ -1092,9 +1104,27 @@ function copyAll(elementId, btn) {
   if (!el) return;
   const items = el.querySelectorAll('.point-item span:last-child');
   const lines = Array.from(items).map(t => t.textContent.trim()).join('\n');
+  if (!lines) return;
   navigator.clipboard.writeText(lines).then(() => {
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy All', 1500);
+  }).catch(() => {
+    // Fallback for HTTP or browsers blocking clipboard API
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = lines;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy All', 1500);
+    } catch {
+      btn.textContent = 'Copy failed';
+      setTimeout(() => btn.textContent = 'Copy All', 1500);
+    }
   });
 }
 
@@ -1105,6 +1135,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── PDF Generation ─────────────────────────────────────────────────────────
+// Bug fix: use Blob URL instead of window.open('','_blank') to avoid popup blockers.
+// Bug fix: use direct setTimeout after document.close() instead of win.onload
+// which has a race condition and may never fire.
 function downloadPDF() {
   const r = window._lastResult;
   if (!r) return;
@@ -1119,7 +1152,7 @@ function downloadPDF() {
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Battle Card — ${r.yourProduct} vs ${r.competitorProduct}</title>
+<title>Battle Card — ${escHtmlPDF(r.yourProduct)} vs ${escHtmlPDF(r.competitorProduct)}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1a1a2e; background: #fff; font-size: 11pt; line-height: 1.5; }
@@ -1288,17 +1321,29 @@ ${r.citations.map(c=>`<div class="citation-item">
 </body>
 </html>`;
 
-  // Open in new window and trigger print-to-PDF
-  const win = window.open('', '_blank');
-  win.document.write(printDoc);
-  win.document.close();
-  win.onload = () => {
+  // Use Blob URL — avoids popup blockers since it is a real URL, not a blank window.
+  // Use setTimeout after document.close() — avoids win.onload race condition.
+  const blob = new Blob([printDoc], { type: 'text/html' });
+  const blobUrl = URL.createObjectURL(blob);
+  const win = window.open(blobUrl, '_blank');
+
+  if (!win) {
+    // Fallback if popup still blocked: offer direct download as HTML
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `BattleCard_${r.yourProduct}_vs_${r.competitorProduct}.html`.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+    a.click();
+  } else {
+    // Give the new window time to render before triggering print
     setTimeout(() => {
       win.print();
-      btn.disabled = false;
-      btn.textContent = '📄 Download Full Report as PDF';
-    }, 800);
-  };
+      // Clean up blob URL after print dialog opens
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    }, 1200);
+  }
+
+  btn.disabled = false;
+  btn.textContent = '📄 Download Full Report as PDF';
 }
 
 function escHtmlPDF(str) {
@@ -1310,11 +1355,6 @@ function escHtmlPDF(str) {
     .replace(/"/g,'&quot;');
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('competitorProduct')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') generateComparison();
-  });
-});
 </script>
 </body>
 </html>
