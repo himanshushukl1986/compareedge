@@ -125,6 +125,95 @@
   }
   .wa-copy-btn:hover { background: rgba(37,211,102,0.25); }
 
+  /* Citations */
+  .citations-section { margin-top: 4px; }
+  .citation-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .citation-item:last-child { border-bottom: none; }
+  .citation-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .citation-badge.verified { background: rgba(0,229,160,0.15); color: var(--accent); }
+  .citation-badge.suggested { background: rgba(255,201,92,0.15); color: var(--neutral); }
+  .citation-body { flex: 1; }
+  .citation-claim { font-size: 12px; color: var(--muted); margin-bottom: 4px; font-style: italic; }
+  .citation-source { font-size: 13px; color: var(--text); }
+  .citation-link { font-size: 11px; color: var(--accent); text-decoration: none; display: inline-block; margin-top: 3px; }
+  .citation-link:hover { text-decoration: underline; }
+  .citation-note { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* PDF download button */
+  .pdf-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px;
+    margin-top: 20px;
+    background: linear-gradient(135deg, rgba(255,92,92,0.15), rgba(255,92,92,0.08));
+    border: 1px solid rgba(255,92,92,0.3);
+    border-radius: 12px;
+    color: #ff7070;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .pdf-btn:hover { background: linear-gradient(135deg, rgba(255,92,92,0.25), rgba(255,92,92,0.12)); border-color: rgba(255,92,92,0.5); }
+  .pdf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Web search toggle */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255,201,92,0.06);
+    border: 1px solid rgba(255,201,92,0.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle-row:hover { border-color: rgba(255,201,92,0.4); }
+  .toggle-switch {
+    width: 38px;
+    height: 22px;
+    background: var(--border);
+    border-radius: 11px;
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .toggle-switch.on { background: var(--accent3); }
+  .toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: left 0.2s;
+  }
+  .toggle-switch.on::after { left: 19px; }
+  .toggle-label { font-size: 13px; color: var(--text); }
+  .toggle-sublabel { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
   body::before {
     content: '';
     position: fixed;
@@ -598,6 +687,14 @@
       <textarea id="sellingPoints" rows="2" placeholder="e.g. 27g protein per scoop, no fillers, FSSAI certified, 3rd party tested, best price in segment…"></textarea>
     </div>
 
+    <div class="toggle-row" onclick="toggleWebSearch()">
+      <div class="toggle-switch" id="webSearchToggle"></div>
+      <div>
+        <div class="toggle-label">🌐 Enable live web search</div>
+        <div class="toggle-sublabel">Fetches real data from product URLs — takes 15–20s longer. Off by default for speed.</div>
+      </div>
+    </div>
+
     <div class="error-box" id="errorBox"></div>
 
     <button class="generate-btn" id="generateBtn" onclick="generateComparison()">
@@ -609,8 +706,8 @@
   <div class="loading-state" id="loadingState">
     <div class="spinner"></div>
     <ul class="loading-steps" id="loadingSteps">
-      <li class="loading-step" id="step1"><span class="step-dot"></span><span>Reading input & URLs</span></li>
-      <li class="loading-step" id="step2"><span class="step-dot"></span><span>Fetching product page data</span></li>
+      <li class="loading-step" id="step1"><span class="step-dot"></span><span>Reading inputs</span></li>
+      <li class="loading-step" id="step2"><span class="step-dot"></span><span id="step2label">Preparing analysis</span></li>
       <li class="loading-step" id="step3"><span class="step-dot"></span><span>Analysing product specs</span></li>
       <li class="loading-step" id="step4"><span class="step-dot"></span><span>Building battle card</span></li>
     </ul>
@@ -657,6 +754,15 @@ async function fetchPageContent(url) {
   return url; // we pass URL to Claude via prompt; Claude fetches it using web_search tool
 }
 
+// Web search toggle state
+let webSearchEnabled = false;
+
+function toggleWebSearch() {
+  webSearchEnabled = !webSearchEnabled;
+  const toggle = document.getElementById('webSearchToggle');
+  toggle.classList.toggle('on', webSearchEnabled);
+}
+
 async function generateComparison() {
   const yourProduct = document.getElementById('yourProduct').value.trim();
   const competitorProduct = document.getElementById('competitorProduct').value.trim();
@@ -699,6 +805,11 @@ async function generateComparison() {
   document.getElementById('resultsSection').className = 'results';
   document.getElementById('resultsSection').innerHTML = '';
 
+  // Update step 2 label based on web search mode
+  document.getElementById('step2label').textContent = webSearchEnabled
+    ? 'Fetching live product page data (this takes ~15s)...'
+    : 'Preparing analysis';
+
   setStep(1);
   await sleep(400);
   setStep(2);
@@ -713,13 +824,14 @@ async function generateComparison() {
       body: JSON.stringify({
         yourProduct,
         competitorProduct,
-        yourProductUrl,
+        yourProductUrl: webSearchEnabled ? yourProductUrl : '',
         yourProductPrice,
         competitorPrice,
-        competitorUrl,
+        competitorUrl: webSearchEnabled ? competitorUrl : '',
         category,
         customerType,
-        sellingPoints
+        sellingPoints,
+        enableWebSearch: webSearchEnabled
       })
     });
 
@@ -922,7 +1034,40 @@ function renderResults(r) {
     </div>`;
   }
 
+  // Citations
+  if (r.citations && r.citations.length) {
+    html += `<div class="section-card">
+      <div class="section-header">
+        <div class="section-icon" style="background:rgba(100,160,255,0.12);color:#80aaff;">📚</div>
+        <div>
+          <div class="section-title">Sources & Citations</div>
+          <div class="section-subtitle">${r.dataSource === 'live' ? 'Verified via live web search' : 'Suggested references — verify before sharing with customers'}</div>
+        </div>
+      </div>
+      <div class="citations-section">`;
+    for (const c of r.citations) {
+      const isVerified = c.verified === true;
+      html += `<div class="citation-item">
+        <span class="citation-badge ${isVerified ? 'verified' : 'suggested'}">${isVerified ? '✓ Verified' : '~ Suggested'}</span>
+        <div class="citation-body">
+          <div class="citation-claim">"${escHtml(c.claim)}"</div>
+          <div class="citation-source">${escHtml(c.source)}</div>
+          <a class="citation-link" href="${escAttr(c.url)}" target="_blank" rel="noopener">${escHtml(c.url)} ↗</a>
+          <div class="citation-note">${escHtml(c.note)}</div>
+        </div>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  // PDF Download button
+  html += `<button class="pdf-btn" id="pdfBtn" onclick="downloadPDF()">
+    📄 Download Full Report as PDF
+  </button>`;
+
   section.innerHTML = html;
+  // Store result for PDF generation
+  window._lastResult = r;
 }
 
 function escHtml(str) {
@@ -951,6 +1096,218 @@ function copyAll(elementId, btn) {
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy All', 1500);
   });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('competitorProduct')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') generateComparison();
+  });
+});
+
+// ── PDF Generation ─────────────────────────────────────────────────────────
+function downloadPDF() {
+  const r = window._lastResult;
+  if (!r) return;
+  const btn = document.getElementById('pdfBtn');
+  btn.disabled = true;
+  btn.textContent = 'Generating PDF...';
+
+  const today = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'long', year:'numeric' });
+
+  // Build print-friendly HTML
+  const printDoc = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Battle Card — ${r.yourProduct} vs ${r.competitorProduct}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1a1a2e; background: #fff; font-size: 11pt; line-height: 1.5; }
+
+  /* Cover page */
+  .cover { page-break-after: always; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #0a0a1f 0%, #1a1a3e 100%); color: white; padding: 60px 40px; text-align: center; }
+  .cover-label { font-size: 11pt; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 32px; }
+  .cover-vs { display: flex; align-items: center; gap: 30px; margin-bottom: 40px; }
+  .cover-product { font-size: 22pt; font-weight: 700; max-width: 240px; line-height: 1.2; }
+  .cover-circle { width: 60px; height: 60px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 16pt; font-weight: 700; color: rgba(255,255,255,0.7); flex-shrink: 0; }
+  .cover-meta { font-size: 10pt; color: rgba(255,255,255,0.4); margin-top: 16px; }
+  .cover-badge { display: inline-block; margin-top: 24px; padding: 6px 20px; border-radius: 20px; background: rgba(0,229,160,0.2); color: #00e5a0; font-size: 10pt; letter-spacing: 0.1em; }
+  .cover-disclaimer { margin-top: 48px; font-size: 9pt; color: rgba(255,255,255,0.3); max-width: 400px; line-height: 1.6; }
+
+  /* Content */
+  .content { padding: 32px 40px; }
+  h1 { font-size: 16pt; color: #0a0a3e; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #e0e0f0; }
+  h2 { font-size: 12pt; color: #3a3a6e; margin: 16px 0 8px; }
+  .summary-box { background: #f0fdf8; border: 1px solid #a0e8cc; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 11pt; line-height: 1.7; }
+  .verdict-box { background: #f8f8ff; border-left: 4px solid #4040cc; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px; }
+  .scores-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  .scores-table th { background: #0a0a3e; color: white; padding: 8px 12px; text-align: left; font-size: 10pt; }
+  .scores-table td { padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 10pt; }
+  .scores-table tr:nth-child(even) td { background: #f8f8ff; }
+  .score-bar-cell { width: 120px; }
+  .score-bar-bg { background: #eee; border-radius: 4px; height: 8px; }
+  .score-bar-fill { height: 8px; border-radius: 4px; }
+  .win-fill { background: #00c87a; }
+  .lose-fill { background: #ff5c5c; }
+  .neutral-fill { background: #ffc95c; }
+  .winner-tag { font-size: 9pt; font-weight: 600; }
+  .winner-us { color: #00c87a; }
+  .winner-them { color: #ff5c5c; }
+  .simple-exp { font-size: 9pt; color: #666; font-style: italic; margin-top: 3px; }
+  .wins-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .wins-box { border-radius: 8px; padding: 14px; }
+  .wins-box.ours { background: #f0fdf8; border: 1px solid #a0e8cc; }
+  .wins-box.theirs { background: #fff5f5; border: 1px solid #ffcccc; }
+  .wins-box h3 { font-size: 11pt; margin-bottom: 8px; }
+  .wins-box.ours h3 { color: #007a4a; }
+  .wins-box.theirs h3 { color: #cc3333; }
+  .wins-box li { font-size: 10pt; margin-left: 16px; margin-bottom: 4px; line-height: 1.5; }
+  .point-list { list-style: none; }
+  .point-list li { padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 10pt; padding-left: 16px; position: relative; }
+  .point-list li:before { content: "→"; position: absolute; left: 0; color: #4040cc; }
+  .obj-item { margin-bottom: 12px; padding: 10px 14px; background: #f8f8ff; border-radius: 8px; border-left: 3px solid #8080cc; }
+  .obj-q { font-size: 10pt; color: #444; font-style: italic; margin-bottom: 4px; }
+  .obj-a { font-size: 10pt; color: #1a1a3e; }
+  .wa-item { background: #f0fff4; border: 1px solid #a0e8a0; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 10pt; }
+  .glossary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .glossary-item { background: #f8f8ff; border-radius: 6px; padding: 10px; }
+  .glossary-term { font-weight: 600; font-size: 10pt; color: #3a3a8e; margin-bottom: 3px; }
+  .glossary-plain { font-size: 9pt; color: #555; }
+  .citation-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid #eee; }
+  .citation-item:last-child { border-bottom: none; }
+  .citation-badge { font-size: 8pt; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; font-weight: 600; }
+  .citation-badge.verified { background: #e0fff4; color: #007a4a; }
+  .citation-badge.suggested { background: #fff8e0; color: #996600; }
+  .citation-body { flex: 1; }
+  .citation-claim { font-size: 9pt; color: #777; font-style: italic; }
+  .citation-source { font-size: 10pt; font-weight: 600; color: #1a1a3e; }
+  .citation-url { font-size: 9pt; color: #4040cc; }
+  .citation-note { font-size: 8pt; color: #999; }
+  .closing-box { background: linear-gradient(135deg, #fff8e0, #fffaf0); border: 1px solid #ffd060; border-radius: 8px; padding: 16px; text-align: center; margin-top: 20px; }
+  .closing-box .label { font-size: 10pt; color: #996600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .closing-box .line { font-size: 13pt; font-weight: 600; color: #1a1a3e; font-style: italic; }
+  .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #ddd; font-size: 8pt; color: #999; text-align: center; }
+  @media print { body { font-size: 10pt; } .cover { min-height: auto; padding: 80px 40px; } }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover">
+  <div class="cover-label">Sales Battle Card Report</div>
+  <div class="cover-vs">
+    <div class="cover-product">${escHtmlPDF(r.yourProduct)}</div>
+    <div class="cover-circle">VS</div>
+    <div class="cover-product">${escHtmlPDF(r.competitorProduct)}</div>
+  </div>
+  <div class="cover-meta">Generated on ${today} &nbsp;·&nbsp; Powered by CompareEdge</div>
+  <div class="cover-badge">${r.dataSource === 'live' ? '✓ Live Data Used' : '🤖 AI Knowledge'}</div>
+  <div class="cover-disclaimer">This report is for internal sales use only. All claims should be verified against current product labels before sharing with customers. Pricing may vary by retailer and date.</div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+${r.laymanSummary ? `<h1>Plain English Summary</h1>
+<div class="summary-box">${escHtmlPDF(r.laymanSummary)}</div>` : ''}
+
+<h1>Sales Verdict</h1>
+<div class="verdict-box">${escHtmlPDF(r.verdict)}</div>
+
+<h1>Head-to-Head Scores</h1>
+<table class="scores-table">
+  <thead><tr><th>Parameter</th><th>${escHtmlPDF(r.yourProduct)}</th><th></th><th>${escHtmlPDF(r.competitorProduct)}</th><th></th><th>Winner</th></tr></thead>
+  <tbody>
+  ${(r.scores||[]).map(s => `<tr>
+    <td>
+      <div>${escHtmlPDF(s.label)}</div>
+      ${s.simpleExplanation ? `<div class="simple-exp">${escHtmlPDF(s.simpleExplanation)}</div>` : ''}
+    </td>
+    <td>${s.ours}</td>
+    <td class="score-bar-cell"><div class="score-bar-bg"><div class="score-bar-fill ${s.winner==='us'?'win-fill':'neutral-fill'}" style="width:${s.ours}%"></div></div></td>
+    <td>${s.theirs}</td>
+    <td class="score-bar-cell"><div class="score-bar-bg"><div class="score-bar-fill ${s.winner==='them'?'lose-fill':'neutral-fill'}" style="width:${s.theirs}%"></div></div></td>
+    <td class="${s.winner==='us'?'winner-us':'winner-them'} winner-tag">${s.winner==='us'?'✓ Us':'✗ Them'}</td>
+  </tr>`).join('')}
+  </tbody>
+</table>
+
+<div class="wins-grid">
+  <div class="wins-box ours">
+    <h3>✅ Where We Win</h3>
+    <ul>${(r.ourWins||[]).map(w=>`<li>${escHtmlPDF(w)}</li>`).join('')}</ul>
+  </div>
+  <div class="wins-box theirs">
+    <h3>⚠️ Where They Win</h3>
+    <ul>${(r.theirWins||[]).map(w=>`<li>${escHtmlPDF(w)}</li>`).join('')}</ul>
+  </div>
+</div>
+
+<h1>Agent Talking Points</h1>
+<ul class="point-list">${(r.talkingPoints||[]).map(t=>`<li>${escHtmlPDF(t)}</li>`).join('')}</ul>
+
+<h1>Objection Handlers</h1>
+${(r.objectionHandlers||[]).map(o=>`<div class="obj-item">
+  <div class="obj-q">Customer: "${escHtmlPDF(o.objection)}"</div>
+  <div class="obj-a">Agent: ${escHtmlPDF(o.response)}</div>
+</div>`).join('')}
+
+${r.technicalTerms && r.technicalTerms.length ? `<h1>Jargon Buster</h1>
+<div class="glossary-grid">
+  ${r.technicalTerms.map(t=>`<div class="glossary-item">
+    <div class="glossary-term">${escHtmlPDF(t.term)}</div>
+    <div class="glossary-plain">${escHtmlPDF(t.plain)}</div>
+  </div>`).join('')}
+</div>` : ''}
+
+${r.whatsappMessages && r.whatsappMessages.length ? `<h1>WhatsApp-Ready Messages</h1>
+${r.whatsappMessages.map(m=>`<div class="wa-item">${escHtmlPDF(m)}</div>`).join('')}` : ''}
+
+${r.citations && r.citations.length ? `<h1>Sources &amp; Citations</h1>
+${r.citations.map(c=>`<div class="citation-item">
+  <span class="citation-badge ${c.verified?'verified':'suggested'}">${c.verified?'✓ Verified':'~ Suggested'}</span>
+  <div class="citation-body">
+    <div class="citation-claim">"${escHtmlPDF(c.claim)}"</div>
+    <div class="citation-source">${escHtmlPDF(c.source)}</div>
+    <div class="citation-url">${escHtmlPDF(c.url)}</div>
+    <div class="citation-note">${escHtmlPDF(c.note)}</div>
+  </div>
+</div>`).join('')}` : ''}
+
+<div class="closing-box">
+  <div class="label">🎯 Closing Line</div>
+  <div class="line">"${escHtmlPDF(r.closingLine)}"</div>
+</div>
+
+<div class="footer">
+  CompareEdge — Internal Sales Reference &nbsp;·&nbsp; Generated ${today} &nbsp;·&nbsp;
+  Pricing and formulations may vary. Always verify against current product labels before making claims to customers.
+</div>
+
+</div>
+</body>
+</html>`;
+
+  // Open in new window and trigger print-to-PDF
+  const win = window.open('', '_blank');
+  win.document.write(printDoc);
+  win.document.close();
+  win.onload = () => {
+    setTimeout(() => {
+      win.print();
+      btn.disabled = false;
+      btn.textContent = '📄 Download Full Report as PDF';
+    }, 800);
+  };
+}
+
+function escHtmlPDF(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
