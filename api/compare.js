@@ -8,7 +8,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'API key not configured on server' });
   }
 
-  // Risk 2 fix: guard against missing body
   if (!req.body) {
     return res.status(400).json({ error: 'Invalid request body' });
   }
@@ -27,7 +26,6 @@ export default async function handler(req, res) {
 
   const hasUrls = !!(enableWebSearch && (yourProductUrl || competitorUrl));
 
-  // Bug 4 fix: two static system prompts so caching works independently for each mode
   const systemPromptBase = `You are a sharp sales intelligence engine for a health supplement brand.
 Your job is to generate detailed, agent-ready battle cards when the brand's product is compared to a competitor.
 Be direct, specific, and honest. Use real knowledge about supplement categories and brands.
@@ -51,7 +49,6 @@ CRITICAL JSON RULES — follow these exactly or the output will break:
 
   const systemPromptText = hasUrls ? systemPromptWebSearch : systemPromptBase;
 
-  // ── Context builders ─────────────────────────────────────────────────────
   let urlContext = '';
   if (hasUrls && yourProductUrl) urlContext += `\nOUR PRODUCT PAGE URL: ${yourProductUrl} (fetch this to get real specs)`;
   if (hasUrls && competitorUrl)  urlContext += `\nCOMPETITOR PRODUCT PAGE URL: ${competitorUrl} (fetch this to get real specs)`;
@@ -60,7 +57,6 @@ CRITICAL JSON RULES — follow these exactly or the output will break:
   if (yourProductPrice) priceContext += `\nOUR PRODUCT PRICE (use this exact figure, do not fetch or guess): INR ${yourProductPrice}`;
   if (competitorPrice)  priceContext += `\nCOMPETITOR PRICE (use this exact figure, do not fetch or guess): INR ${competitorPrice}`;
 
-  // ── User prompt ──────────────────────────────────────────────────────────
   const userPrompt = `Generate a detailed sales battle card comparison.
 
 OUR PRODUCT: ${yourProduct}
@@ -144,7 +140,6 @@ Respond ONLY with this exact JSON structure. No text outside the JSON. No apostr
   ]
 }`;
 
-  // ── Claude request body ──────────────────────────────────────────────────
   const claudeBody = {
     model: "claude-sonnet-4-5",
     max_tokens: 4000,
@@ -162,11 +157,24 @@ Respond ONLY with this exact JSON structure. No text outside the JSON. No apostr
     claudeBody.tools = [{ type: "web_search_20250305", name: "web_search" }];
   }
 
-  // Timeout strategy:
-  // - Web search ON: no timeout — takes 15-20s by design, requires Vercel Pro (60s limit)
-  // - Web search OFF: 9s timeout — clean error before Vercel Hobby kills at 10s
   const controller = new AbortController();
   const timeout = hasUrls ? null : setTimeout(() => controller.abort(), 9000);
+
+  // FIX: retry on 429 rate limit with exponential backoff
+  async function callWithRetry(fetchOptions, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const claudeRes = await fetch("https://api.anthropic.com/v1/messages", fetchOptions);
+      const data = await claudeRes.json();
+      if (claudeRes.status === 429) {
+        if (attempt === maxRetries) {
+          throw new Error('Rate limit exceeded — too many agents generating at once. Please wait 30 seconds and try again.');
+        }
+        await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+        continue;
+      }
+      return data;
+    }
+  }
 
   try {
     const fetchOptions = {
@@ -179,27 +187,23 @@ Respond ONLY with this exact JSON structure. No text outside the JSON. No apostr
       },
       body: JSON.stringify(claudeBody)
     };
-    // Only attach abort signal when timeout is active (non-web-search mode)
     if (!hasUrls) fetchOptions.signal = controller.signal;
 
-    const claudeRes = await fetch("https://api.anthropic.com/v1/messages", fetchOptions);
+    const data = await callWithRetry(fetchOptions);
 
     if (timeout) clearTimeout(timeout);
-
-    const data = await claudeRes.json();
 
     if (data.error) {
       return res.status(500).json({ error: data.error.message });
     }
 
-    // Extract only text blocks — handles web_search tool_use/tool_result blocks
     const raw = data.content
       .filter(i => i.type === 'text')
       .map(i => i.text || '')
       .join('');
 
-    // Strip markdown fences and replace rupee symbol
-    let clean = raw.replace(/```json[\s\S]*?```|```[\s\S]*?```/g, '').trim();
+    // FIX: strip fence markers only, not the content between them
+    let clean = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
     clean = clean.replace(/₹/g, 'INR');
 
     const jsonMatch = clean.match(/\{[\s\S]*\}/);
@@ -209,7 +213,6 @@ Respond ONLY with this exact JSON structure. No text outside the JSON. No apostr
     try {
       result = JSON.parse(jsonMatch[0]);
     } catch (parseErr) {
-      // Fallback: replace unescaped apostrophes inside string values with curly apostrophe
       const fixed = jsonMatch[0].replace(/"([^"]*)"/g, (match, inner) => {
         return '"' + inner.replace(/'/g, '\u2019') + '"';
       });
@@ -220,7 +223,6 @@ Respond ONLY with this exact JSON structure. No text outside the JSON. No apostr
       }
     }
 
-    // Mark citations as verified if web search was used
     if (result.citations && hasUrls) {
       result.citations = result.citations.map(c => ({
         ...c,
