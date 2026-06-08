@@ -1256,10 +1256,10 @@ ${r.laymanSummary ? `<h1>Plain English Summary</h1>
       <div>${escHtmlPDF(s.label)}</div>
       ${s.simpleExplanation ? `<div class="simple-exp">${escHtmlPDF(s.simpleExplanation)}</div>` : ''}
     </td>
-    <td>${s.ours}</td>
-    <td class="score-bar-cell"><div class="score-bar-bg"><div class="score-bar-fill ${s.winner==='us'?'win-fill':'neutral-fill'}" style="width:${s.ours}%"></div></div></td>
-    <td>${s.theirs}</td>
-    <td class="score-bar-cell"><div class="score-bar-bg"><div class="score-bar-fill ${s.winner==='them'?'lose-fill':'neutral-fill'}" style="width:${s.theirs}%"></div></div></td>
+    <td>${Math.min(100,Math.max(0,s.ours||0))}</td>
+    <td class="score-bar-cell"><div class="score-bar-bg"><div class="score-bar-fill ${s.winner==='us'?'win-fill':'neutral-fill'}" style="width:${Math.min(100,Math.max(0,s.ours||0))}%"></div></div></td>
+    <td>${Math.min(100,Math.max(0,s.theirs||0))}</td>
+    <td class="score-bar-cell"><div class="score-bar-bg"><div class="score-bar-fill ${s.winner==='them'?'lose-fill':'neutral-fill'}" style="width:${Math.min(100,Math.max(0,s.theirs||0))}%"></div></div></td>
     <td class="${s.winner==='us'?'winner-us':'winner-them'} winner-tag">${s.winner==='us'?'✓ Us':'✗ Them'}</td>
   </tr>`).join('')}
   </tbody>
